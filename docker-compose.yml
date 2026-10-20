@@ -1,0 +1,68 @@
+# 大学生智能财务管理平台（CSAIFM）一键启动
+# 用法：复制 .env.example 为 .env（建议至少修改 POSTGRES_PASSWORD 与 JWT_SECRET），
+#       然后执行：docker compose up -d --build
+# 启动后访问 http://localhost:5173（API 文档 http://localhost:8000/docs）
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-csaifm}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-csaifm}
+      POSTGRES_DB: ${POSTGRES_DB:-csaifm}
+    ports:
+      - "5433:5432" # 宿主端口 5433，避免与本机已安装的 PostgreSQL（5432）冲突
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-csaifm} -d ${POSTGRES_DB:-csaifm}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-csaifm}:${POSTGRES_PASSWORD:-csaifm}@db:5432/${POSTGRES_DB:-csaifm}
+      JWT_SECRET: ${JWT_SECRET:-dev-only-secret-please-change-32bytes-minimum}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173}
+      # —— 外部 AI 服务（不配置则走演示模式，接口明确标注）——
+      AI_MODE: ${AI_MODE:-auto}
+      AI_API_BASE_URL: ${AI_API_BASE_URL:-}
+      AI_API_KEY: ${AI_API_KEY:-}
+      AI_MODEL: ${AI_MODEL:-gpt-4o-mini}
+      SPEECH_API_BASE_URL: ${SPEECH_API_BASE_URL:-}
+      SPEECH_API_KEY: ${SPEECH_API_KEY:-}
+      SPEECH_MODEL: ${SPEECH_MODEL:-whisper-1}
+      OCR_API_BASE_URL: ${OCR_API_BASE_URL:-}
+      OCR_API_KEY: ${OCR_API_KEY:-}
+      OCR_MODEL: ${OCR_MODEL:-gpt-4o-mini}
+      # —— 邮件（找回密码验证码；不配置则验证码仅打印在后端日志）——
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-465}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      EXPORT_DIR: /app/exports
+    ports:
+      - "8000:8000"
+    volumes:
+      - exports:/app/exports # 导出的 PDF 持久化
+    depends_on:
+      db:
+        condition: service_healthy
+    # 启动即迁移 + 幂等种子数据（演示账号/内置分类/示例账单），再起服务
+    command: ["sh", "-c", "alembic upgrade head && python -m app.seed && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
+  exports:

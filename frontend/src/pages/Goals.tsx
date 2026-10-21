@@ -3,8 +3,9 @@ import { goalApi } from '../api/endpoints'
 import type { GoalOut } from '../api/types'
 import { isApiError } from '../api/client'
 import { useToast } from '../components/Toast'
+import { Icon } from '../components/Icon'
 import { Card, ConfirmDialog, Empty, ErrorBox, Field, Loading, Modal, ProgressBar } from '../components/ui'
-import { formatDate, sanitizeYuanInput, todayStr, yuanToCents } from '../utils/money'
+import { centsToYuan, formatDate, sanitizeYuanInput, todayStr, yuanToCents } from '../utils/money'
 
 const RISK_LABEL: Record<string, string> = {
   on_track: '按计划进行', tight: '进度偏紧', overdue: '已逾期', done: '已达成',
@@ -116,8 +117,11 @@ export default function Goals() {
   return (
     <div>
       <div className="flex-between mb16">
-        <p className="muted">设定储蓄目标，系统按剩余天数给出每日/每月建议储蓄额</p>
-        <button className="btn btn-primary" onClick={openCreate}>＋ 新建目标</button>
+        <p className="muted">设定储蓄目标，系统按剩余天数给出每日 / 每月建议储蓄额</p>
+        <button className="btn btn-primary" onClick={openCreate}>
+          <Icon name="plus" size={16} />
+          新建目标
+        </button>
       </div>
 
       {loading ? <Loading /> : error ? <ErrorBox text={error} onRetry={load} /> :
@@ -130,13 +134,16 @@ export default function Goals() {
             {goals.map((g) => (
               <Card key={g.id} className="goal-card">
                 <div className="flex-between">
-                  <h2 className="card-title">{g.name}</h2>
+                  <h2 className="card-title">
+                    <span className="card-title-icon"><Icon name="target" size={16} /></span>
+                    {g.name}
+                  </h2>
                   <span className={`badge ${RISK_BADGE[g.risk] ?? 'badge-muted'}`}>
                     {RISK_LABEL[g.risk] ?? g.risk}
                   </span>
                 </div>
                 <div className="mb8 small muted">
-                  目标 <span className="strong">¥{(g.target_cents / 100).toFixed(2)}</span>
+                  目标 <span className="strong">¥{centsToYuan(g.target_cents)}</span>
                   {' · '}截止 {formatDate(g.deadline)}
                   {g.days_left >= 0 ? `（剩 ${g.days_left} 天）` : `（已超期 ${-g.days_left} 天）`}
                 </div>
@@ -144,20 +151,24 @@ export default function Goals() {
                              status={g.risk === 'overdue' ? 'exceeded' : g.risk === 'tight' ? 'approaching' : 'normal'}
                              height={10} />
                 <div className="flex-between mt8">
-                  <span className="muted small">已存 ¥{(g.current_cents / 100).toFixed(2)} / ¥{(g.target_cents / 100).toFixed(2)}（{g.progress_percent}%）</span>
+                  <span className="muted small">已存 ¥{centsToYuan(g.current_cents)} / ¥{centsToYuan(g.target_cents)}（{g.progress_percent}%）</span>
                 </div>
                 <div className="grid grid-2 mt16">
-                  <div className="small muted">还差 <span className="strong">¥{(g.remaining_cents / 100).toFixed(2)}</span></div>
+                  <div className="small muted">还差 <span className="strong">¥{centsToYuan(g.remaining_cents)}</span></div>
                   <div className="small muted" style={{ textAlign: 'right' }}>
                     {g.risk === 'done'
-                      ? <span className="badge badge-success">已达成 🎉</span>
-                      : <>建议每日存 <span className="strong">¥{(g.suggested_daily_cents / 100).toFixed(2)}</span></>}
+                      ? <span className="badge badge-success"><Icon name="check-circle" size={13} />已达成</span>
+                      : <>建议每日存 <span className="strong">¥{centsToYuan(g.suggested_daily_cents)}</span></>}
                   </div>
                 </div>
                 {g.note && <p className="small muted mt8">备注：{g.note}</p>}
                 <div className="flex gap8 mt16" style={{ justifyContent: 'flex-end' }}>
-                  <button className="btn-inline" onClick={() => openEdit(g)}>编辑</button>
-                  <button className="btn-inline danger" onClick={() => setDeleting(g)}>删除</button>
+                  <button className="btn-inline" onClick={() => openEdit(g)}>
+                    <Icon name="edit" size={13} />编辑
+                  </button>
+                  <button className="btn-inline danger" onClick={() => setDeleting(g)}>
+                    <Icon name="trash" size={13} />删除
+                  </button>
                 </div>
               </Card>
             ))}

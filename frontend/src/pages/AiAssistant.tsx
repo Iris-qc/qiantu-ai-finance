@@ -3,7 +3,8 @@ import { aiApi, categoryApi } from '../api/endpoints'
 import type { AdviceOut, CategoryOut, DraftItem } from '../api/types'
 import { isApiError } from '../api/client'
 import { useToast } from '../components/Toast'
-import { Card, Empty, Field, Loading } from '../components/ui'
+import { Icon } from '../components/Icon'
+import { Card } from '../components/ui'
 import { centsToYuan, isoToLocalInput, localInputToIso, sanitizeYuanInput, yuanToCents } from '../utils/money'
 
 type Tab = 'text' | 'voice' | 'image'
@@ -168,9 +169,9 @@ export default function AiAssistant() {
     }
   }
 
-  async function askAdvice() {
-    if (!question.trim()) return
-    const q = question.trim()
+  async function askAdvice(preset?: string) {
+    const q = (preset ?? question).trim()
+    if (!q) return
     setQuestion('')
     setChat((prev) => [...prev, { role: 'user', text: q }])
     setAdviceBusy(true)
@@ -192,11 +193,17 @@ export default function AiAssistant() {
   return (
     <div className="grid" style={{ gridTemplateColumns: 'minmax(0, 1fr)' }}>
       {/* 草稿识别入口 */}
-      <Card title="AI 智能记账">
+      <Card title="AI 智能记账" icon="sparkles">
         <div className="flex gap8 mb16">
-          <button className={`chip ${tab === 'text' ? 'active' : ''}`} onClick={() => setTab('text')}>⌨️ 自然语言</button>
-          <button className={`chip ${tab === 'voice' ? 'active' : ''}`} onClick={() => setTab('voice')}>🎤 语音</button>
-          <button className={`chip ${tab === 'image' ? 'active' : ''}`} onClick={() => setTab('image')}>🖼️ 图片识别</button>
+          <button className={`chip ${tab === 'text' ? 'active' : ''}`} onClick={() => setTab('text')}>
+            <Icon name="edit" size={14} />自然语言
+          </button>
+          <button className={`chip ${tab === 'voice' ? 'active' : ''}`} onClick={() => setTab('voice')}>
+            <Icon name="mic" size={14} />语音
+          </button>
+          <button className={`chip ${tab === 'image' ? 'active' : ''}`} onClick={() => setTab('image')}>
+            <Icon name="image" size={14} />图片识别
+          </button>
         </div>
 
         {tab === 'text' && (
@@ -207,6 +214,7 @@ export default function AiAssistant() {
                    onKeyDown={(e) => { if (e.key === 'Enter' && !nlBusy) void parseNl() }} />
             <button className="btn btn-primary" disabled={nlBusy || !nlText.trim()}
                     onClick={() => void parseNl()}>
+              <Icon name="sparkles" size={15} />
               {nlBusy ? '解析中…' : '解析'}
             </button>
           </div>
@@ -215,13 +223,17 @@ export default function AiAssistant() {
         {tab === 'voice' && (
           <div className="flex gap8 wrap">
             {recording ? (
-              <button className="btn btn-danger" onClick={stopRecording}>⏹ 停止录音</button>
+              <button className="btn btn-danger" onClick={stopRecording}>
+                <Icon name="square" size={15} />停止录音
+              </button>
             ) : (
               <button className="btn btn-primary" disabled={speechBusy}
                       onClick={() => void startRecording()}>
-                {speechBusy ? '识别中…' : '🎤 开始录音'}
+                <Icon name="mic" size={16} />
+                {speechBusy ? '识别中…' : '开始录音'}
               </button>
             )}
+            {recording && <span className="recording-dot" aria-label="录音中" />}
             <span className="muted small" style={{ alignSelf: 'center' }}>
               录音后自动转写并生成草稿；需浏览器麦克风权限
             </span>
@@ -235,7 +247,8 @@ export default function AiAssistant() {
           <div className="flex gap8 wrap">
             <button className="btn btn-primary" disabled={imageBusy}
                     onClick={() => fileInputRef.current?.click()}>
-              {imageBusy ? '识别中…' : '🖼️ 选择图片'}
+              <Icon name="image" size={16} />
+              {imageBusy ? '识别中…' : '选择图片'}
             </button>
             <input ref={fileInputRef} type="file" accept="image/*" hidden
                    onChange={(e) => void onImagePicked(e)} />
@@ -253,7 +266,10 @@ export default function AiAssistant() {
         {/* 草稿区 */}
         {drafts.length > 0 && (
           <div className="mt16">
-            <h3 className="card-title mb16">待确认草稿（{drafts.length} 条）</h3>
+            <h3 className="card-title mb16">
+              <span className="card-title-icon"><Icon name="receipt" size={16} /></span>
+              待确认草稿（{drafts.length} 条）
+            </h3>
             {drafts.map((d, i) => (
               <div key={i} className="draft-item">
                 <select className="select" style={{ width: 90 }}
@@ -296,7 +312,7 @@ export default function AiAssistant() {
                        onChange={(e) => updateDraft(i, { note: e.target.value })} />
                 <button className="btn-inline danger draft-remove"
                         onClick={() => setDrafts((prev) => prev.filter((_, x) => x !== i))}>
-                  移除
+                  <Icon name="x" size={14} />移除
                 </button>
               </div>
             ))}
@@ -316,35 +332,63 @@ export default function AiAssistant() {
       </Card>
 
       {/* 消费建议对话 */}
-      <Card title="AI 消费建议">
+      <Card title="AI 消费建议" icon="message-circle">
         <div className="chat mb16" style={{ maxHeight: 420, overflowY: 'auto' }}>
           {chat.length === 0 && (
-            <Empty text="问点关于消费的问题吧，例如：「这个月还能买500元的鞋吗」" />
+            <div className="state-box">
+              <div className="empty-icon"><Icon name="message-circle" size={24} /></div>
+              <p>问点关于消费的问题吧</p>
+              <div className="suggestion-chips">
+                {[
+                  '这个月还能买 500 元的鞋吗？',
+                  '本月哪类支出最多？',
+                  '如何提高储蓄速度？',
+                ].map((s) => (
+                  <button key={s} type="button" className="chip" onClick={() => void askAdvice(s)}>
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
           {chat.map((m, i) => (
-            <div key={i} className={`chat-msg ${m.role === 'user' ? 'chat-user' : 'chat-bot'}`}>
-              {m.mode && (
-                <span className={`badge ${m.mode === 'demo' ? 'badge-warning' : 'badge-success'}`} style={{ marginBottom: 6 }}>
-                  {m.mode === 'demo' ? '演示模式' : '外部服务'}
-                </span>
+            <div key={i} className={`chat-row ${m.role}`}>
+              {m.role === 'bot' && (
+                <div className="chat-avatar"><Icon name="sparkles" size={16} /></div>
               )}
-              <div>{m.text}</div>
-              {m.basis && m.basis.length > 0 && (
-                <div className="mt8 small" style={{ opacity: 0.9 }}>
-                  <div className="strong">依据（均来自系统实际数据）：</div>
-                  {m.basis.map((b, x) => (
-                    <div key={x}>· {b.label}：{b.value}</div>
-                  ))}
-                </div>
-              )}
-              {m.warnings && m.warnings.length > 0 && m.warnings.map((w, x) => (
-                <div key={x} className="small mt8" style={{ opacity: 0.9 }}>⚠️ {w}</div>
-              ))}
-              {m.disclaimer && <div className="small mt8" style={{ opacity: 0.7 }}>{m.disclaimer}</div>}
+              <div className={`chat-msg ${m.role === 'user' ? 'chat-user' : 'chat-bot'}`}>
+                {m.mode && (
+                  <span className={`badge ${m.mode === 'demo' ? 'badge-warning' : 'badge-success'}`} style={{ marginBottom: 6 }}>
+                    {m.mode === 'demo' ? '演示模式' : '外部服务'}
+                  </span>
+                )}
+                <div>{m.text}</div>
+                {m.basis && m.basis.length > 0 && (
+                  <div className="chat-basis small mt8">
+                    <div className="strong">依据（均来自系统实际数据）：</div>
+                    {m.basis.map((b, x) => (
+                      <div key={x}>· {b.label}：{b.value}</div>
+                    ))}
+                  </div>
+                )}
+                {m.warnings && m.warnings.length > 0 && m.warnings.map((w, x) => (
+                  <div key={x} className="chat-warning small mt8">
+                    <Icon name="alert-triangle" size={13} />
+                    {w}
+                  </div>
+                ))}
+                {m.disclaimer && <div className="small muted mt8">{m.disclaimer}</div>}
+              </div>
             </div>
           ))}
           {adviceBusy && (
-            <div className="chat-msg chat-bot"><Loading text="思考中…" /></div>
+            <div className="chat-row bot">
+              <div className="chat-avatar"><Icon name="sparkles" size={16} /></div>
+              <div className="chat-msg chat-bot chat-thinking">
+                <span className="spinner" />
+                思考中…
+              </div>
+            </div>
           )}
           <div ref={chatEndRef} />
         </div>
@@ -354,7 +398,10 @@ export default function AiAssistant() {
                  onChange={(e) => setQuestion(e.target.value)}
                  onKeyDown={(e) => { if (e.key === 'Enter' && !adviceBusy) void askAdvice() }} />
           <button className="btn btn-primary" disabled={adviceBusy || !question.trim()}
-                  onClick={() => void askAdvice()}>提问</button>
+                  onClick={() => void askAdvice()}>
+            <Icon name="send" size={15} />
+            提问
+          </button>
         </div>
       </Card>
     </div>

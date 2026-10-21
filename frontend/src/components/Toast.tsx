@@ -1,10 +1,18 @@
 import { createContext, useCallback, useContext, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
+import { Icon } from './Icon'
+import type { IconName } from './Icon'
 
 interface ToastItem {
   id: number
   text: string
   kind: 'success' | 'error' | 'info'
+}
+
+const TOAST_ICON: Record<ToastItem['kind'], IconName> = {
+  success: 'check-circle',
+  error: 'alert-circle',
+  info: 'info',
 }
 
 interface ToastState {
@@ -34,7 +42,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {children}
       <div className="toast-stack" role="status" aria-live="polite">
         {items.map((t) => (
-          <div key={t.id} className={`toast toast-${t.kind}`}>{t.text}</div>
+          <div key={t.id} className={`toast toast-${t.kind}`}>
+            <Icon name={TOAST_ICON[t.kind]} size={17} />
+            <span>{t.text}</span>
+          </div>
         ))}
       </div>
     </ToastContext.Provider>

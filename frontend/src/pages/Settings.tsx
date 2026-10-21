@@ -6,8 +6,11 @@ import { categoryApi, profileApi } from '../api/endpoints'
 import type { CategoryOut } from '../api/types'
 import { isApiError } from '../api/client'
 import { useToast } from '../components/Toast'
+import { Icon } from '../components/Icon'
 import { Card, ConfirmDialog, ErrorBox, Field, Loading, Modal, Money } from '../components/ui'
 import { sanitizeYuanInput, yuanToCents } from '../utils/money'
+import { applyTheme, getStoredTheme } from '../utils/theme'
+import type { ThemeMode } from '../utils/theme'
 
 export default function Settings() {
   const { user, logout } = useAuth()
@@ -36,6 +39,13 @@ export default function Settings() {
   const [catKind, setCatKind] = useState<'income' | 'expense'>('expense')
   const [catErr, setCatErr] = useState('')
   const [deletingCat, setDeletingCat] = useState<CategoryOut | null>(null)
+
+  const [theme, setTheme] = useState<ThemeMode>(getStoredTheme)
+
+  function chooseTheme(mode: ThemeMode) {
+    applyTheme(mode)
+    setTheme(mode)
+  }
 
   const loadCats = useCallback(() => {
     categoryApi.list().then(setCategories).catch(() => setCategories([]))
@@ -156,7 +166,7 @@ export default function Settings() {
   return (
     <div>
       {/* 账户信息 */}
-      <Card title="账户信息">
+      <Card title="账户信息" icon="user">
         <div className="grid grid-2">
           <Field label="用户名（注册后不可修改）">
             <input className="input" value={user?.username ?? ''} disabled />
@@ -166,21 +176,46 @@ export default function Settings() {
               <input className="input" type="email" value={email}
                      onChange={(e) => setEmail(e.target.value)} placeholder="未绑定" />
               <button className="btn btn-outline" disabled={emailBusy} onClick={() => void saveEmail()}>
+                <Icon name="check" size={15} />
                 {emailBusy ? '保存中…' : '保存'}
               </button>
             </div>
           </Field>
         </div>
         <div className="flex mt16">
-          <button className="btn btn-outline btn-danger" style={{ color: 'var(--expense)' }}
+          <button className="btn btn-danger-outline"
                   onClick={() => { logout(); navigate('/login') }}>
+            <Icon name="logout" size={16} />
             退出登录
           </button>
         </div>
       </Card>
 
+      {/* 外观 */}
+      <Card title="外观" icon="sun">
+        <div className="theme-options" role="group" aria-label="主题外观">
+          {([
+            { mode: 'system', label: '跟随系统', icon: 'monitor' },
+            { mode: 'light', label: '浅色', icon: 'sun' },
+            { mode: 'dark', label: '深色', icon: 'moon' },
+          ] as const).map((opt) => (
+            <button
+              key={opt.mode}
+              type="button"
+              className={`theme-option ${theme === opt.mode ? 'active' : ''}`}
+              aria-pressed={theme === opt.mode}
+              onClick={() => chooseTheme(opt.mode)}
+            >
+              <Icon name={opt.icon} size={20} />
+              {opt.label}
+            </button>
+          ))}
+        </div>
+        <p className="small muted mt16">跟随系统时，会随操作系统的浅色 / 深色设置自动切换。</p>
+      </Card>
+
       {/* 生活费设置 */}
-      <Card title="生活费设置">
+      <Card title="生活费设置" icon="wallet">
         <div className="grid grid-2">
           <Field label="每月生活费（元）" hint="仅用于周期计算与建议，实际到账请记收入账单">
             <input className="input" inputMode="decimal" value={allowance}
@@ -196,12 +231,13 @@ export default function Settings() {
           </Field>
         </div>
         <button className="btn btn-primary" disabled={allowanceBusy} onClick={() => void saveAllowance()}>
+          <Icon name="check" size={15} />
           {allowanceBusy ? '保存中…' : '保存生活费设置'}
         </button>
       </Card>
 
       {/* 资产校准 */}
-      <Card title="资产校准">
+      <Card title="资产校准" icon="scale">
         <p className="muted mb16">
           系统资产 = 资产基数 + 收入 − 支出 ± 校准。当前计算值：
           <span className="strong"> <Money cents={profile?.current_assets_cents ?? 0} /></span>
@@ -211,13 +247,17 @@ export default function Settings() {
           系统会生成一条「资产校准」记录，差额可追溯。校准记录不可编辑，再次校准即可修正。
         </p>
         <button className="btn btn-outline" onClick={() => { setCalibValue(''); setCalibErr(''); setCalibOpen(true) }}>
+          <Icon name="scale" size={16} />
           校准资产
         </button>
       </Card>
 
       {/* 分类管理 */}
-      <Card title="分类管理" extra={
-        <button className="btn btn-primary btn-sm" onClick={() => openCatModal('create')}>＋ 新建分类</button>
+      <Card title="分类管理" icon="receipt" extra={
+        <button className="btn btn-primary btn-sm" onClick={() => openCatModal('create')}>
+          <Icon name="plus" size={14} />
+          新建分类
+        </button>
       }>
         <h3 className="muted small mb8">支出分类</h3>
         <div className="chips mb16">
@@ -251,12 +291,12 @@ export default function Settings() {
       </Card>
 
       {/* 更多功能（移动端入口） */}
-      <Card title="更多功能" className="mobile-links-card">
+      <Card title="更多功能" icon="menu" className="mobile-links-card">
         <div className="grid grid-2">
-          <Link className="btn btn-outline" to="/goals">🎯 储蓄目标</Link>
-          <Link className="btn btn-outline" to="/notifications">🔔 提醒</Link>
-          <Link className="btn btn-outline" to="/reports">📄 报告</Link>
-          <Link className="btn btn-outline" to="/ai">🤖 AI 助手</Link>
+          <Link className="btn btn-outline" to="/goals"><Icon name="target" size={16} />储蓄目标</Link>
+          <Link className="btn btn-outline" to="/notifications"><Icon name="bell" size={16} />提醒</Link>
+          <Link className="btn btn-outline" to="/reports"><Icon name="file-text" size={16} />报告</Link>
+          <Link className="btn btn-outline" to="/ai"><Icon name="sparkles" size={16} />AI 助手</Link>
         </div>
       </Card>
 

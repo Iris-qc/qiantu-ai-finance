@@ -4,8 +4,9 @@ import { reportApi } from '../api/endpoints'
 import type { ReportOut, ReportPeriodsOut } from '../api/types'
 import { isApiError } from '../api/client'
 import { useToast } from '../components/Toast'
+import { Icon } from '../components/Icon'
 import { Card, ConfirmDialog, Empty, ErrorBox, Field, Loading, Modal, Money } from '../components/ui'
-import { formatDateTime } from '../utils/money'
+import { centsToYuan, formatDateTime } from '../utils/money'
 
 const TYPE_LABEL: Record<string, string> = { monthly: '月报', semester: '学期报', annual: '年报' }
 
@@ -106,20 +107,26 @@ export default function Reports() {
     <div>
       <div className="flex-between mb16">
         <p className="muted">生成月度 / 学期 / 年度消费报告，可在网页查看并导出 PDF</p>
-        <button className="btn btn-primary" onClick={openGen}>＋ 生成报告</button>
+        <button className="btn btn-primary" onClick={openGen}>
+          <Icon name="plus" size={16} />
+          生成报告
+        </button>
       </div>
 
       {loading ? <Loading /> : error ? <ErrorBox text={error} onRetry={load} /> : (
         <>
           {/* 当前查看的报告 */}
           {current && c && (
-            <Card title={current.title} extra={
+            <Card title={current.title} icon="file-text" extra={
               <div className="flex gap8">
                 <button className="btn btn-outline btn-sm" disabled={pdfBusy}
                         onClick={() => void doDownload(current)}>
-                  {pdfBusy ? '导出中…' : '⬇ 导出 PDF'}
+                  <Icon name="download" size={14} />
+                  {pdfBusy ? '导出中…' : '导出 PDF'}
                 </button>
-                <button className="btn-inline danger" onClick={() => setCurrent(null)}>关闭</button>
+                <button className="btn-inline" onClick={() => setCurrent(null)}>
+                  <Icon name="x" size={13} />关闭
+                </button>
               </div>
             }>
               <div className="report-preview">
@@ -132,13 +139,13 @@ export default function Reports() {
                   总支出 <span className="strong money-out"><Money cents={c.summary.expense_cents} /></span>；
                   总收入 <span className="strong money-in"><Money cents={c.summary.income_cents} /></span>；
                   结余 <Money cents={c.summary.net_cents} />；账单 {c.summary.bill_count} 笔；
-                  日均支出约 ¥{(c.summary.avg_daily_cents / 100).toFixed(2)}。
+                  日均支出约 ¥{centsToYuan(c.summary.avg_daily_cents)}。
                 </p>
                 {c.summary.top_category && <p>最大支出类别：{c.summary.top_category}。</p>}
                 {c.summary.max_day && (
-                  <p>单日最高支出：{c.summary.max_day.day}，¥{(c.summary.max_day.amount_cents / 100).toFixed(2)}。</p>
+                  <p>单日最高支出：{c.summary.max_day.day}，¥{centsToYuan(c.summary.max_day.amount_cents)}。</p>
                 )}
-                <p className="small muted">报告生成时当前资产：¥{(c.summary.current_assets_cents / 100).toFixed(2)}</p>
+                <p className="small muted">报告生成时当前资产：¥{centsToYuan(c.summary.current_assets_cents)}</p>
 
                 <h3>二、分类消费</h3>
                 {c.categories.length === 0 ? <p>该周期内没有支出记录。</p> : (
@@ -148,7 +155,7 @@ export default function Reports() {
                       {c.categories.map((row) => (
                         <tr key={row.category_name}>
                           <td>{row.category_name}</td>
-                          <td>{(row.amount_cents / 100).toFixed(2)}</td>
+                          <td>{centsToYuan(row.amount_cents)}</td>
                           <td>{row.percent}%</td>
                         </tr>
                       ))}
@@ -159,7 +166,7 @@ export default function Reports() {
                 <h3>三、预算执行</h3>
                 {c.budget ? (
                   <p>
-                    区间总预算 ¥{(c.budget.total_cents / 100).toFixed(2)}，实际支出 ¥{(c.budget.spent_cents / 100).toFixed(2)}，
+                    区间总预算 ¥{centsToYuan(c.budget.total_cents)}，实际支出 ¥{centsToYuan(c.budget.spent_cents)}，
                     使用率 {c.budget.usage_percent}%
                     （{c.budget.status === 'exceeded' ? '已超支' : c.budget.status === 'approaching' ? '接近上限' : '正常'}）。
                   </p>
@@ -170,7 +177,7 @@ export default function Reports() {
                   <ul>
                     {c.anomalies.map((a) => (
                       <li key={a.bill_id}>
-                        {a.occurred_at} {a.category_name} ¥{(a.amount_cents / 100).toFixed(2)}
+                        {a.occurred_at} {a.category_name} ¥{centsToYuan(a.amount_cents)}
                         {a.note ? `（${a.note}）` : ''}
                       </li>
                     ))}
@@ -182,7 +189,7 @@ export default function Reports() {
                   <ul>
                     {c.goals.map((g) => (
                       <li key={g.name}>
-                        {g.name}：¥{(g.current_cents / 100).toFixed(2)} / ¥{(g.target_cents / 100).toFixed(2)}
+                        {g.name}：¥{centsToYuan(g.current_cents)} / ¥{centsToYuan(g.target_cents)}
                         （{g.progress_percent}%），截止 {g.deadline}
                       </li>
                     ))}
@@ -197,14 +204,16 @@ export default function Reports() {
           )}
 
           {/* 历史报告列表 */}
-          <Card title="历史报告">
+          <Card title="历史报告" icon="file-text">
             {!reports || reports.length === 0 ? (
               <Empty text="还没有生成过报告，点击上方「生成报告」开始" />
             ) : (
               <div className="list">
                 {reports.map((r) => (
                   <div key={r.id} className="bill-row">
-                    <div className="bill-icon adj">📄</div>
+                    <div className="bill-icon adj">
+                      <Icon name="file-text" size={18} />
+                    </div>
                     <div className="bill-main">
                       <div className="bill-name">
                         {r.title}
@@ -213,10 +222,16 @@ export default function Reports() {
                       <div className="bill-sub">{formatDateTime(r.created_at)}{r.has_pdf ? ' · PDF 已生成' : ''}</div>
                     </div>
                     <div className="bill-actions">
-                      <button className="btn-inline" onClick={() => setCurrent(r)}>查看</button>
+                      <button className="btn-inline" onClick={() => setCurrent(r)}>
+                        <Icon name="search" size={13} />查看
+                      </button>
                       <button className="btn-inline" disabled={pdfBusy}
-                              onClick={() => void doDownload(r)}>PDF</button>
-                      <button className="btn-inline danger" onClick={() => setDeleting(r)}>删除</button>
+                              onClick={() => void doDownload(r)}>
+                        <Icon name="download" size={13} />PDF
+                      </button>
+                      <button className="btn-inline danger" onClick={() => setDeleting(r)}>
+                        <Icon name="trash" size={13} />删除
+                      </button>
                     </div>
                   </div>
                 ))}

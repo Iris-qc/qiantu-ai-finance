@@ -17,3 +17,7 @@ backend/exports/
 # 测试与工具缓存
 .pytest_cache/
 .vscode/
+
+# 本地工具配置与 Word 临时锁文件
+.claude/
+~$*

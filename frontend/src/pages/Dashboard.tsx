@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
+import type { CSSProperties } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { analyticsApi, billApi, budgetApi, notificationApi } from '../api/endpoints'
 import type { BudgetOverviewOut, ProfileOut, SummaryOut } from '../api/types'
 import { useProfile } from '../auth/ProfileContext'
 import { Card, DirectionMoney, Empty, ErrorBox, Loading, Money, ProgressBar, Stat } from '../components/ui'
-import { formatDateTime, thisMonth, todayStr } from '../utils/money'
+import { Icon, billIcon } from '../components/Icon'
+import { centsToYuan, formatDateTime, thisMonth, todayStr } from '../utils/money'
 import { monthLabel } from '../utils/date'
 
 export default function Dashboard() {
@@ -43,73 +45,137 @@ export default function Dashboard() {
 
   const totalBudget = budget?.items.find((b) => b.scope === 'total')
   const f = budget?.forecast
+  const ringTone = totalBudget?.status === 'exceeded'
+    ? 'ring-danger'
+    : totalBudget?.status === 'approaching' ? 'ring-warning' : 'ring-success'
 
   return (
     <div>
       {/* 资产横幅 */}
       <section className="hero">
-        <div className="hero-label">当前总资产（自动重算）</div>
-        <div className="hero-value">¥{(p.current_assets_cents / 100).toLocaleString('zh-CN', { minimumFractionDigits: 2 })}</div>
+        <div className="hero-top">
+          <div>
+            <div className="hero-label">当前总资产（自动重算）</div>
+            <div className="hero-value">¥{centsToYuan(p.current_assets_cents)}</div>
+          </div>
+          <span className="hero-pill">
+            <Icon name="shield" size={13} />
+            数据仅本人可见
+          </span>
+        </div>
         <div className="hero-grid">
           <div className="hero-item">
-            <div className="l">距离下次生活费</div>
-            <div className="v">{p.days_to_next_allowance} 天</div>
+            <span className="hero-item-icon"><Icon name="clock" size={17} /></span>
+            <div>
+              <div className="l">距离下次生活费</div>
+              <div className="v">{p.days_to_next_allowance} 天</div>
+            </div>
           </div>
           <div className="hero-item">
-            <div className="l">发放日（每月 {p.allowance_day} 日）</div>
-            <div className="v">{p.next_allowance_date}</div>
+            <span className="hero-item-icon"><Icon name="calendar" size={17} /></span>
+            <div>
+              <div className="l">发放日（每月 {p.allowance_day} 日）</div>
+              <div className="v">{p.next_allowance_date}</div>
+            </div>
           </div>
           <div className="hero-item">
-            <div className="l">建议每日支出</div>
-            <div className="v">≤ ¥{(p.suggested_daily_cents / 100).toFixed(2)}</div>
+            <span className="hero-item-icon"><Icon name="piggy-bank" size={17} /></span>
+            <div>
+              <div className="l">建议每日支出</div>
+              <div className="v">≤ ¥{centsToYuan(p.suggested_daily_cents)}</div>
+            </div>
           </div>
         </div>
       </section>
 
+      {unread > 0 && (
+        <button type="button" className="notice-banner" onClick={() => navigate('/notifications')}>
+          <Icon name="bell" size={17} />
+          <span className="grow">你有 {unread} 条未读提醒，点击查看预算与消费异常</span>
+          <Icon name="chevron-right" size={16} />
+        </button>
+      )}
+
       {/* 快捷操作 */}
-      <div className="flex gap8 wrap mb16">
-        <button className="btn btn-primary" onClick={() => navigate('/bills?new=1')}>＋ 记一笔</button>
-        <button className="btn btn-outline" onClick={() => navigate('/ai')}>🤖 AI 智能记账</button>
-        <button className="btn btn-outline" onClick={() => navigate('/budgets')}>💰 预算管理</button>
-        <button className="btn btn-outline" onClick={() => navigate('/reports')}>📄 生成报告</button>
-        {unread > 0 && (
-          <button className="btn btn-outline" onClick={() => navigate('/notifications')}>
-            🔔 {unread} 条未读提醒
-          </button>
-        )}
+      <div className="quick-actions">
+        <button type="button" className="quick-action primary" onClick={() => navigate('/bills?new=1')}>
+          <span className="quick-icon"><Icon name="plus" size={19} /></span>
+          <span>
+            <strong>记一笔</strong>
+            <small>记录收入或支出</small>
+          </span>
+        </button>
+        <button type="button" className="quick-action" onClick={() => navigate('/ai')}>
+          <span className="quick-icon"><Icon name="sparkles" size={19} /></span>
+          <span>
+            <strong>AI 智能记账</strong>
+            <small>一句话生成账单</small>
+          </span>
+        </button>
+        <button type="button" className="quick-action" onClick={() => navigate('/budgets')}>
+          <span className="quick-icon"><Icon name="wallet" size={19} /></span>
+          <span>
+            <strong>预算管理</strong>
+            <small>查看本月预算进度</small>
+          </span>
+        </button>
+        <button type="button" className="quick-action" onClick={() => navigate('/reports')}>
+          <span className="quick-icon"><Icon name="file-text" size={19} /></span>
+          <span>
+            <strong>生成报告</strong>
+            <small>月度 / 学期 / 年报</small>
+          </span>
+        </button>
       </div>
 
       {/* 本月收支 */}
       <div className="grid grid-2 mb16">
         <Stat label={`本月收入（${monthLabel(thisMonth())}）`} tone="in"
+              icon="trending-up"
               value={summary ? <Money cents={summary.income_cents} /> : '—'}
               sub={summary && summary.prev_income_cents !== null && summary.prev_income_cents !== undefined
-                ? `上期 ¥${(summary.prev_income_cents / 100).toFixed(2)}` : '上月数据不足或暂无'} />
+                ? `上期 ¥${centsToYuan(summary.prev_income_cents)}` : '上月数据不足或暂无'} />
         <Stat label="本月支出" tone="out"
+              icon="trending-down"
               value={summary ? <Money cents={summary.expense_cents} /> : '—'}
               sub={summary && summary.prev_expense_cents !== null && summary.prev_expense_cents !== undefined
-                ? `上期 ¥${(summary.prev_expense_cents / 100).toFixed(2)}` : '上月数据不足或暂无'} />
+                ? `上期 ¥${centsToYuan(summary.prev_expense_cents)}` : '上月数据不足或暂无'} />
       </div>
 
       {/* 预算进度 */}
-      <Card title="本月总预算" extra={<Link to="/budgets" className="small">预算管理 →</Link>}>
+      <Card title="本月总预算" icon="wallet" extra={<Link to="/budgets" className="small">预算管理 →</Link>}>
         {budget === null ? (
           <p className="muted small">加载中…</p>
         ) : totalBudget ? (
           <>
-            <div className="flex-between mb8">
-              <span className="muted">已用 <Money cents={totalBudget.spent_cents} /> / <Money cents={totalBudget.amount_cents} /></span>
-              <span className={`badge ${totalBudget.status === 'exceeded' ? 'badge-danger' : totalBudget.status === 'approaching' ? 'badge-warning' : 'badge-success'}`}>
-                {totalBudget.usage_percent}%
-              </span>
+            <div className="budget-summary">
+              <div
+                className={`budget-ring ${ringTone}`}
+                style={{ '--pct': `${Math.min(totalBudget.usage_percent, 100)}%` } as CSSProperties}
+              >
+                <div className="budget-ring-inner">
+                  <strong>{totalBudget.usage_percent}%</strong>
+                  <span>已使用</span>
+                </div>
+              </div>
+              <div className="budget-summary-main">
+                <div className="flex-between mb8">
+                  <span className="muted small">
+                    已用 <Money cents={totalBudget.spent_cents} /> / <Money cents={totalBudget.amount_cents} />
+                  </span>
+                  <span className={`badge ${totalBudget.status === 'exceeded' ? 'badge-danger' : totalBudget.status === 'approaching' ? 'badge-warning' : 'badge-success'}`}>
+                    {totalBudget.status === 'exceeded' ? '已超支' : totalBudget.status === 'approaching' ? '接近上限' : '正常'}
+                  </span>
+                </div>
+                <ProgressBar percent={totalBudget.usage_percent} status={totalBudget.status} height={10} />
+                {f && (
+                  <p className="small muted mt8">
+                    月底预测：约 <span className="strong">¥{centsToYuan(f.predicted_cents)}</span>
+                    {' '}· 风险：<span className="strong">{f.risk_label}</span>
+                  </p>
+                )}
+              </div>
             </div>
-            <ProgressBar percent={totalBudget.usage_percent} status={totalBudget.status} height={10} />
-            {f && (
-              <p className="small muted mt8">
-                月底预测：约 <span className="strong">¥{(f.predicted_cents / 100).toFixed(2)}</span>
-                {' '}· 风险：<span className="strong">{f.risk_label}</span>
-              </p>
-            )}
           </>
         ) : (
           <div className="flex-between">
@@ -120,7 +186,7 @@ export default function Dashboard() {
       </Card>
 
       {/* 最近账单 */}
-      <Card title="最近账单" extra={<Link to="/bills" className="small">全部账单 →</Link>}>
+      <Card title="最近账单" icon="receipt" extra={<Link to="/bills" className="small">全部账单 →</Link>}>
         {listErr ? (
           <ErrorBox text={listErr} onRetry={() => window.location.reload()} />
         ) : recent === null ? (
@@ -134,7 +200,7 @@ export default function Dashboard() {
             {recent.items.map((b) => (
               <div key={b.id} className="bill-row">
                 <div className={`bill-icon ${b.bill_type}`}>
-                  {b.bill_type === 'income' ? '💰' : b.bill_type === 'expense' ? '🛒' : '⚖️'}
+                  <Icon name={billIcon(b.bill_type, b.category_name)} size={19} />
                 </div>
                 <div className="bill-main">
                   <div className="bill-name">{b.category_name}</div>

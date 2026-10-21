@@ -1,6 +1,8 @@
 // 通用 UI 小组件：金额文本、进度条、加载/空/错误状态、弹窗、卡片
 import type { ReactNode } from 'react'
 import { centsToYuan } from '../utils/money'
+import { Icon } from './Icon'
+import type { IconName } from './Icon'
 
 export function Money({ cents, className = '' }: { cents: number; className?: string }) {
   const neg = cents < 0
@@ -52,7 +54,7 @@ export function Loading({ text = '加载中…' }: { text?: string }) {
 export function Empty({ text = '暂无数据', children }: { text?: string; children?: ReactNode }) {
   return (
     <div className="state-box">
-      <div className="empty-icon" aria-hidden="true">🗒️</div>
+      <div className="empty-icon" aria-hidden="true"><Icon name="inbox" size={24} /></div>
       <p>{text}</p>
       {children}
     </div>
@@ -62,7 +64,7 @@ export function Empty({ text = '暂无数据', children }: { text?: string; chil
 export function ErrorBox({ text, onRetry }: { text: string; onRetry?: () => void }) {
   return (
     <div className="state-box state-error">
-      <div className="empty-icon" aria-hidden="true">⚠️</div>
+      <div className="empty-icon" aria-hidden="true"><Icon name="alert-triangle" size={24} /></div>
       <p>{text}</p>
       {onRetry && (
         <button type="button" className="btn btn-outline btn-sm" onClick={onRetry}>重试</button>
@@ -71,8 +73,9 @@ export function ErrorBox({ text, onRetry }: { text: string; onRetry?: () => void
   )
 }
 
-export function Card({ title, extra, children, className = '' }: {
+export function Card({ title, icon, extra, children, className = '' }: {
   title?: ReactNode
+  icon?: IconName
   extra?: ReactNode
   children: ReactNode
   className?: string
@@ -81,7 +84,10 @@ export function Card({ title, extra, children, className = '' }: {
     <section className={`card ${className}`}>
       {(title || extra) && (
         <header className="card-head">
-          <h2 className="card-title">{title}</h2>
+          <h2 className="card-title">
+            {icon && <span className="card-title-icon"><Icon name={icon} size={16} /></span>}
+            {title}
+          </h2>
           {extra}
         </header>
       )}
@@ -104,7 +110,9 @@ export function Modal({ open, title, onClose, children, footer }: {
            onClick={(e) => e.stopPropagation()}>
         <header className="modal-head">
           <h3>{title}</h3>
-          <button type="button" className="icon-btn" onClick={onClose} aria-label="关闭">✕</button>
+          <button type="button" className="icon-btn" onClick={onClose} aria-label="关闭">
+            <Icon name="x" size={18} />
+          </button>
         </header>
         <div className="modal-body">{children}</div>
         {footer && <footer className="modal-foot">{footer}</footer>}
@@ -140,15 +148,19 @@ export function ConfirmDialog({ open, title, text, confirmText = '确认', dange
   )
 }
 
-export function Stat({ label, value, sub, tone }: {
+export function Stat({ label, value, sub, tone, icon }: {
   label: string
   value: ReactNode
   sub?: ReactNode
   tone?: 'in' | 'out' | 'plain'
+  icon?: IconName
 }) {
   return (
     <div className={`stat ${tone ? `stat-${tone}` : ''}`}>
-      <div className="stat-label">{label}</div>
+      <div className="stat-head">
+        <div className="stat-label">{label}</div>
+        {icon && <span className="stat-icon"><Icon name={icon} size={16} /></span>}
+      </div>
       <div className="stat-value">{value}</div>
       {sub && <div className="stat-sub">{sub}</div>}
     </div>

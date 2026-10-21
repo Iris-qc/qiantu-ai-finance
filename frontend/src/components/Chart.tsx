@@ -2,6 +2,7 @@
 // 主题切换时用新墨色重建 option 并整体重绘。
 import { useEffect, useRef } from 'react'
 import * as echarts from 'echarts'
+import { THEME_EVENT } from '../utils/theme'
 
 export interface VizInk {
   ink: string
@@ -55,9 +56,11 @@ export default function Chart({ build, height = 300 }: {
     }
     const onResize = () => chart.resize()
     window.addEventListener('resize', onResize)
+    window.addEventListener(THEME_EVENT, onThemeChange)
     mq.addEventListener('change', onThemeChange)
     return () => {
       window.removeEventListener('resize', onResize)
+      window.removeEventListener(THEME_EVENT, onThemeChange)
       mq.removeEventListener('change', onThemeChange)
       chart.dispose()
       chartRef.current = null

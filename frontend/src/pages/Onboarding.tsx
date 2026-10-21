@@ -5,6 +5,7 @@ import { useProfile } from '../auth/ProfileContext'
 import { profileApi } from '../api/endpoints'
 import { isApiError } from '../api/client'
 import { centsToYuan, sanitizeYuanInput, yuanToCents } from '../utils/money'
+import AuthShell from '../components/AuthShell'
 
 export default function Onboarding() {
   const navigate = useNavigate()
@@ -45,49 +46,47 @@ export default function Onboarding() {
   }
 
   return (
-    <div className="auth-page">
-      <div className="auth-card" style={{ maxWidth: 440 }}>
-        <div className="auth-brand">
-          <div className="big">👋</div>
-          <h1>财务资料初始化</h1>
-          <p>完成初始化后即可开始记账</p>
+    <AuthShell
+      icon="sparkles"
+      title="财务资料初始化"
+      subtitle="完成初始化后即可开始记账"
+      wide
+    >
+      <form onSubmit={onSubmit}>
+        <label className="field">
+          <span className="field-label">当前可支配资产（元）<span className="required">*</span></span>
+          <input className="input" inputMode="decimal" value={assets}
+                 onChange={(e) => setAssets(sanitizeYuanInput(e.target.value))}
+                 placeholder="例如 5000" />
+          <span className="field-hint">作为资产基数，之后不可重复设置；如有偏差请使用「资产校准」</span>
+        </label>
+        <label className="field">
+          <span className="field-label">每月生活费（元）<span className="required">*</span></span>
+          <input className="input" inputMode="decimal" value={allowance}
+                 onChange={(e) => setAllowance(sanitizeYuanInput(e.target.value))}
+                 placeholder="例如 2000" />
+        </label>
+        <label className="field">
+          <span className="field-label">生活费发放日<span className="required">*</span></span>
+          <select className="select" value={day} onChange={(e) => setDay(e.target.value)}>
+            {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => (
+              <option key={d} value={d}>每月 {d} 日</option>
+            ))}
+          </select>
+          <span className="field-hint">
+            发放日只用于周期计算（倒计时/每日建议支出），不会自动增加资产；实际到账请记一笔收入账单
+          </span>
+        </label>
+        {error && <div className="form-error">{error}</div>}
+        <button className="btn btn-primary btn-block" type="submit" disabled={busy}>
+          {busy ? '保存中…' : '完成初始化'}
+        </button>
+      </form>
+      {assets && yuanToCents(assets) !== null && (
+        <div className="notice-info mt16">
+          你的资产基数将记为 <span className="strong">¥{centsToYuan(yuanToCents(assets)!)}</span>
         </div>
-        <form onSubmit={onSubmit}>
-          <label className="field">
-            <span className="field-label">当前可支配资产（元）<span className="required">*</span></span>
-            <input className="input" inputMode="decimal" value={assets}
-                   onChange={(e) => setAssets(sanitizeYuanInput(e.target.value))}
-                   placeholder="例如 5000" />
-            <span className="field-hint">作为资产基数，之后不可重复设置；如有偏差请使用「资产校准」</span>
-          </label>
-          <label className="field">
-            <span className="field-label">每月生活费（元）<span className="required">*</span></span>
-            <input className="input" inputMode="decimal" value={allowance}
-                   onChange={(e) => setAllowance(sanitizeYuanInput(e.target.value))}
-                   placeholder="例如 2000" />
-          </label>
-          <label className="field">
-            <span className="field-label">生活费发放日<span className="required">*</span></span>
-            <select className="select" value={day} onChange={(e) => setDay(e.target.value)}>
-              {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => (
-                <option key={d} value={d}>每月 {d} 日</option>
-              ))}
-            </select>
-            <span className="field-hint">
-              发放日只用于周期计算（倒计时/每日建议支出），不会自动增加资产；实际到账请记一笔收入账单
-            </span>
-          </label>
-          {error && <div className="form-error">{error}</div>}
-          <button className="btn btn-primary btn-block" type="submit" disabled={busy}>
-            {busy ? '保存中…' : '完成初始化'}
-          </button>
-        </form>
-        {assets && yuanToCents(assets) !== null && (
-          <div className="notice-info mt16">
-            你的资产基数将记为 <span className="strong">¥{centsToYuan(yuanToCents(assets)!)}</span>
-          </div>
-        )}
-      </div>
-    </div>
+      )}
+    </AuthShell>
   )
 }

@@ -5,11 +5,12 @@ import { billApi, categoryApi } from '../api/endpoints'
 import type { BillListOut, BillOut, BillType, CategoryOut } from '../api/types'
 import { isApiError } from '../api/client'
 import { useToast } from '../components/Toast'
+import { Icon, billIcon } from '../components/Icon'
 import {
   Card, ConfirmDialog, DirectionMoney, Empty, ErrorBox, Field, Loading, Modal,
 } from '../components/ui'
 import {
-  formatDateTime, isoToLocalInput, localInputToIso, sanitizeYuanInput, yuanToCents,
+  centsToYuan, formatDateTime, isoToLocalInput, localInputToIso, sanitizeYuanInput, yuanToCents,
 } from '../utils/money'
 
 interface FormState {
@@ -176,31 +177,58 @@ export default function Bills() {
     <div>
       {/* 筛选区 */}
       <Card>
-        <div className="flex gap8 wrap mb8">
-          <button className="btn btn-primary" onClick={openCreate}>＋ 记一笔</button>
+        <div className="flex gap8 wrap mb16">
+          <button className="btn btn-primary" onClick={openCreate}>
+            <Icon name="plus" size={16} />
+            记一笔
+          </button>
           {(['', 'expense', 'income', 'adjustment'] as const).map((t) => (
             <button key={t} className={`chip ${typeFilter === t ? 'active' : ''}`}
                     onClick={() => { setTypeFilter(t); setPage(1) }}>
+              {t === 'expense' && <Icon name="trending-down" size={14} />}
+              {t === 'income' && <Icon name="trending-up" size={14} />}
+              {t === 'adjustment' && <Icon name="scale" size={14} />}
               {t === '' ? '全部' : t === 'expense' ? '支出' : t === 'income' ? '收入' : '校准'}
             </button>
           ))}
         </div>
         <div className="flex gap8 wrap">
-          <input className="input" type="month" style={{ width: 150 }} value={monthFilter}
-                 onChange={(e) => { setMonthFilter(e.target.value); setPage(1) }} aria-label="按月份筛选" />
+          <div className="month-field">
+            <Icon name="calendar" size={15} />
+            <span className={`month-value ${monthFilter ? '' : 'is-placeholder'}`}>
+              {monthFilter ? `${monthFilter.replace('-', ' 年 ')} 月` : '全部月份'}
+            </span>
+            <input className="month-native" type="month" value={monthFilter}
+                   title="选择月份" aria-label="按月份筛选"
+                   onChange={(e) => { setMonthFilter(e.target.value); setPage(1) }} />
+            {monthFilter && (
+              <button type="button" className="month-clear" aria-label="清除月份筛选"
+                      onClick={() => { setMonthFilter(''); setPage(1) }}>
+                <Icon name="x" size={13} />
+              </button>
+            )}
+          </div>
           <select className="select" style={{ width: 140 }} value={catFilter}
                   onChange={(e) => { setCatFilter(e.target.value); setPage(1) }} aria-label="按分类筛选">
             <option value="">全部分类</option>
             {catOptions.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
-          <input className="input" style={{ flex: 1, minWidth: 140 }} value={keyword}
-                 placeholder="搜索分类或备注…"
-                 onChange={(e) => { setKeyword(e.target.value); setPage(1) }} aria-label="搜索" />
+          <div className="search-field">
+            <Icon name="search" size={16} />
+            <input className="input" value={keyword} placeholder="搜索分类或备注…"
+                   onChange={(e) => { setKeyword(e.target.value); setPage(1) }} aria-label="搜索" />
+          </div>
+          {(typeFilter || monthFilter || catFilter || keyword) && (
+            <button className="btn btn-ghost btn-sm" onClick={resetFilters}>
+              <Icon name="x" size={14} />
+              清除筛选
+            </button>
+          )}
         </div>
       </Card>
 
       {/* 列表 */}
-      <Card title={`账单列表${data ? `（共 ${data.total} 笔）` : ''}`}>
+      <Card title={`账单列表${data ? `（共 ${data.total} 笔）` : ''}`} icon="receipt">
         {loading ? <Loading /> : error ? <ErrorBox text={error} onRetry={load} /> :
           !data || data.items.length === 0 ? (
             <Empty text={typeFilter || monthFilter || catFilter || keyword ? '没有符合筛选条件的账单' : '还没有账单，点击「记一笔」开始记账'}>
@@ -227,14 +255,23 @@ export default function Bills() {
                             {b.bill_type === 'income' ? '收入' : b.bill_type === 'expense' ? '支出' : '校准'}
                           </span>
                         </td>
-                        <td>{b.category_name}</td>
+                        <td>
+                          <span className="category-cell">
+                            <Icon name={billIcon(b.bill_type, b.category_name)} size={15} />
+                            {b.category_name}
+                          </span>
+                        </td>
                         <td className="muted ellipsis" style={{ maxWidth: 180 }}>{b.note || '—'}</td>
                         <td className="num"><DirectionMoney cents={b.amount_cents} type={b.bill_type} /></td>
                         <td className="bill-actions">
                           {b.bill_type !== 'adjustment' && (
-                            <button className="btn-inline" onClick={() => openEdit(b)}>编辑</button>
+                            <button className="btn-inline" onClick={() => openEdit(b)}>
+                              <Icon name="edit" size={13} />编辑
+                            </button>
                           )}
-                          <button className="btn-inline danger" onClick={() => setDeleting(b)}>删除</button>
+                          <button className="btn-inline danger" onClick={() => setDeleting(b)}>
+                            <Icon name="trash" size={13} />删除
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -246,7 +283,7 @@ export default function Bills() {
                 {data.items.map((b) => (
                   <div key={b.id} className="bill-row">
                     <div className={`bill-icon ${b.bill_type}`}>
-                      {b.bill_type === 'income' ? '💰' : b.bill_type === 'expense' ? '🛒' : '⚖️'}
+                      <Icon name={billIcon(b.bill_type, b.category_name)} size={19} />
                     </div>
                     <div className="bill-main">
                       <div className="bill-name">
@@ -259,9 +296,13 @@ export default function Bills() {
                       <DirectionMoney cents={b.amount_cents} type={b.bill_type} className="bill-amount" />
                       <div className="flex gap8 mt8" style={{ justifyContent: 'flex-end' }}>
                         {b.bill_type !== 'adjustment' && (
-                          <button className="btn-inline" onClick={() => openEdit(b)}>编辑</button>
+                          <button className="btn-inline" onClick={() => openEdit(b)}>
+                            <Icon name="edit" size={13} />编辑
+                          </button>
                         )}
-                        <button className="btn-inline danger" onClick={() => setDeleting(b)}>删除</button>
+                        <button className="btn-inline danger" onClick={() => setDeleting(b)}>
+                          <Icon name="trash" size={13} />删除
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -270,10 +311,14 @@ export default function Bills() {
               {/* 分页 */}
               <div className="flex-between mt16">
                 <button className="btn btn-outline btn-sm" disabled={page <= 1}
-                        onClick={() => setPage(page - 1)}>上一页</button>
+                        onClick={() => setPage(page - 1)}>
+                  <Icon name="chevron-left" size={15} />上一页
+                </button>
                 <span className="muted small">第 {data.page} / {totalPages} 页</span>
                 <button className="btn btn-outline btn-sm" disabled={page >= totalPages}
-                        onClick={() => setPage(page + 1)}>下一页</button>
+                        onClick={() => setPage(page + 1)}>
+                  下一页<Icon name="chevron-right" size={15} />
+                </button>
               </div>
             </>
           )}
@@ -293,6 +338,7 @@ export default function Bills() {
           {(['expense', 'income'] as const).map((t) => (
             <button key={t} className={`chip ${form.bill_type === t ? 'active' : ''}`}
                     onClick={() => setForm({ ...form, bill_type: t, category_id: '' })}>
+              <Icon name={t === 'expense' ? 'trending-down' : 'trending-up'} size={14} />
               {t === 'expense' ? '支出' : '收入'}
             </button>
           ))}
@@ -324,7 +370,7 @@ export default function Bills() {
       <ConfirmDialog
         open={!!deleting}
         title="删除账单"
-        text={deleting ? `确定删除「${deleting.category_name}」¥${(deleting.amount_cents / 100).toFixed(2)} 这笔账单吗？删除后资产与预算将自动重算。` : ''}
+        text={deleting ? `确定删除「${deleting.category_name}」¥${centsToYuan(deleting.amount_cents)} 这笔账单吗？删除后资产与预算将自动重算。` : ''}
         danger
         busy={deleteBusy}
         onConfirm={() => void doDelete()}

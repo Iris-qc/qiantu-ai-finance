@@ -4,8 +4,9 @@ import { analyticsApi } from '../api/endpoints'
 import type { CategoryStatsOut, SummaryOut, TrendOut } from '../api/types'
 import Chart from '../components/Chart'
 import type { VizInk } from '../components/Chart'
+import { Icon } from '../components/Icon'
 import { Card, Empty, ErrorBox, Loading, Money, Stat } from '../components/ui'
-import { thisMonth, todayStr } from '../utils/money'
+import { centsToYuan, thisMonth, todayStr } from '../utils/money'
 import { monthLabel } from '../utils/date'
 
 type Granularity = 'day' | 'week' | 'month'
@@ -49,15 +50,15 @@ export default function Analytics() {
   const [trendView, setTrendView] = useState<'chart' | 'table'>('chart')
   const [catView, setCatView] = useState<'chart' | 'table'>('chart')
 
-  const window = useMemo(() => computeWindow(granularity, month), [granularity, month])
+  const range = useMemo(() => computeWindow(granularity, month), [granularity, month])
 
   const load = useCallback(() => {
     setLoading(true)
     setError('')
     Promise.all([
-      analyticsApi.trend(granularity, window.start, window.end),
-      analyticsApi.categories(window.start, window.end),
-      analyticsApi.summary(window.start, window.end),
+      analyticsApi.trend(granularity, range.start, range.end),
+      analyticsApi.categories(range.start, range.end),
+      analyticsApi.summary(range.start, range.end),
     ])
       .then(([t, c, s]) => {
         setTrend(t)
@@ -66,7 +67,7 @@ export default function Analytics() {
       })
       .catch((e) => setError(e instanceof Error ? e.message : '加载分析数据失败'))
       .finally(() => setLoading(false))
-  }, [granularity, window.start, window.end])
+  }, [granularity, range.start, range.end])
 
   useEffect(() => { load() }, [load])
 
@@ -76,21 +77,37 @@ export default function Analytics() {
     const yuan = (cents: number) => Number((cents / 100).toFixed(2))
     const incomeData = points.map((p) => yuan(p.income_cents))
     const expenseData = points.map((p) => yuan(p.expense_cents))
+    // 峰值标签避开画布左右边缘：首日向右、末日向左、其余向上
+    const maxIndex = (values: number[]) =>
+      values.reduce((best, v, i) => (v > values[best] ? i : best), 0)
+    const peakLabel = (index: number) => ({
+      position: points.length === 1 || index === 0 ? 'right' as const
+        : index === points.length - 1 ? 'left' as const : 'top' as const,
+      offset: (points.length === 1 || index === 0 ? [4, 0]
+        : index === points.length - 1 ? [-4, 0] : [0, -4]) as [number, number],
+    })
+    const incomePeak = maxIndex(incomeData)
+    const expensePeak = maxIndex(expenseData)
     return {
       backgroundColor: 'transparent',
+      animationDuration: 450,
+      animationEasing: 'cubicOut',
       legend: {
         top: 0, right: 0, itemWidth: 12, itemHeight: 4, icon: 'roundRect',
         textStyle: { color: c.ink2, fontSize: 12 },
       },
       tooltip: {
         trigger: 'axis',
+        confine: true,
         axisPointer: { type: 'cross', lineStyle: { color: c.baseline }, crossStyle: { color: c.baseline } },
-        backgroundColor: '#1f2937',
+        backgroundColor: 'rgba(15, 23, 42, 0.94)',
         borderWidth: 0,
+        padding: [9, 12],
         textStyle: { color: '#fff', fontSize: 12 },
+        extraCssText: 'border-radius:10px;box-shadow:0 12px 28px -12px rgba(0,0,0,.5);',
         valueFormatter: (v: unknown) => `¥${Number(v ?? 0).toFixed(2)}`,
       },
-      grid: { left: 8, right: 16, top: 36, bottom: 4, containLabel: true },
+      grid: { left: 8, right: 28, top: 42, bottom: 4, containLabel: true },
       xAxis: {
         type: 'category', data: points.map((p) => p.label), boundaryGap: false,
         axisLine: { lineStyle: { color: c.baseline } }, axisTick: { show: false },
@@ -98,6 +115,9 @@ export default function Analytics() {
       },
       yAxis: {
         type: 'value',
+        // 给峰值标签留出上方空间，避免标签与顶部刻度重叠
+        max: (value: { min: number; max: number }) =>
+          Math.max(100, Math.ceil((value.max * 1.18) / 100) * 100),
         axisLabel: { color: c.muted, fontSize: 11, formatter: (v: number) => fmtYuanShort(v) },
         splitLine: { lineStyle: { color: c.grid } },
       },
@@ -108,8 +128,15 @@ export default function Analytics() {
           showSymbol: !sparse, symbol: 'circle', symbolSize: sparse ? 0 : 8,
           emphasis: { focus: 'series' },
           markPoint: sparse && points.length > 0 ? {
-            data: [{ name: '最高', type: 'max', label: { color: c.ink, fontSize: 11, formatter: (p: any) => `¥${Number(p.value ?? 0).toFixed(0)}` } }],
-            symbolSize: 8, itemStyle: { color: c.income },
+            data: [{
+              name: '最高', type: 'max',
+              label: {
+                ...peakLabel(incomePeak),
+                color: c.ink, fontSize: 11,
+                formatter: (p: any) => `¥${Number(p.value ?? 0).toFixed(0)}`,
+              },
+            }],
+            symbol: 'circle', symbolSize: 8, itemStyle: { color: c.income },
           } : undefined,
         },
         {
@@ -118,8 +145,15 @@ export default function Analytics() {
           showSymbol: !sparse, symbol: 'circle', symbolSize: sparse ? 0 : 8,
           emphasis: { focus: 'series' },
           markPoint: sparse && points.length > 0 ? {
-            data: [{ name: '最高', type: 'max', label: { color: c.ink, fontSize: 11, formatter: (p: any) => `¥${Number(p.value ?? 0).toFixed(0)}` } }],
-            symbolSize: 8, itemStyle: { color: c.expense },
+            data: [{
+              name: '最高', type: 'max',
+              label: {
+                ...peakLabel(expensePeak),
+                color: c.ink, fontSize: 11,
+                formatter: (p: any) => `¥${Number(p.value ?? 0).toFixed(0)}`,
+              },
+            }],
+            symbol: 'circle', symbolSize: 8, itemStyle: { color: c.expense },
           } : undefined,
         },
       ],
@@ -132,11 +166,16 @@ export default function Analytics() {
     const sorted = [...items].sort((a, b) => a.amount_cents - b.amount_cents)
     return {
       backgroundColor: 'transparent',
+      animationDuration: 450,
+      animationEasing: 'cubicOut',
       tooltip: {
         trigger: 'item',
-        backgroundColor: '#1f2937',
+        confine: true,
+        backgroundColor: 'rgba(15, 23, 42, 0.94)',
         borderWidth: 0,
+        padding: [9, 12],
         textStyle: { color: '#fff', fontSize: 12 },
+        extraCssText: 'border-radius:10px;box-shadow:0 12px 28px -12px rgba(0,0,0,.5);',
         formatter: (p: any) =>
           `${p.name}：¥${Number(p.value).toFixed(2)}（${sorted[p.dataIndex]?.percent ?? 0}%）`,
       },
@@ -193,25 +232,29 @@ export default function Analytics() {
         <>
           {/* 周期汇总（KPI 行，非图表） */}
           <div className="grid grid-4 mb16">
-            <Stat label={`${windowLabel}收入`} tone="in"
+            <Stat label={`${windowLabel}收入`} tone="in" icon="trending-up"
                   value={summary ? <Money cents={summary.income_cents} /> : '—'}
                   sub={summary && (summary.prev_income_cents ?? 0) > 0
-                    ? `上期 ¥${((summary.prev_income_cents ?? 0) / 100).toFixed(2)}` : undefined} />
-            <Stat label="支出" tone="out"
+                    ? `上期 ¥${centsToYuan(summary.prev_income_cents ?? 0)}` : undefined} />
+            <Stat label="支出" tone="out" icon="trending-down"
                   value={summary ? <Money cents={summary.expense_cents} /> : '—'}
                   sub={summary && (summary.prev_expense_cents ?? 0) > 0
-                    ? `上期 ¥${((summary.prev_expense_cents ?? 0) / 100).toFixed(2)}` : undefined} />
-            <Stat label="结余"
+                    ? `上期 ¥${centsToYuan(summary.prev_expense_cents ?? 0)}` : undefined} />
+            <Stat label="结余" icon="wallet"
                   value={summary ? <Money cents={summary.income_cents - summary.expense_cents} /> : '—'}
                   sub={summary ? `共 ${summary.bill_count} 笔` : undefined} />
-            <Stat label="支出 Top 分类" value={summary?.top_category ?? '—'} />
+            <Stat label="支出 Top 分类" icon="chart" value={summary?.top_category ?? '—'} />
           </div>
 
           {/* 收支趋势 */}
-          <Card title={`收支趋势（${windowLabel}）`} extra={
+          <Card title={`收支趋势（${windowLabel}）`} icon="chart" extra={
             <div className="flex gap8">
-              <button className={`chip ${trendView === 'chart' ? 'active' : ''}`} onClick={() => setTrendView('chart')}>图表</button>
-              <button className={`chip ${trendView === 'table' ? 'active' : ''}`} onClick={() => setTrendView('table')}>数据表</button>
+              <button className={`chip ${trendView === 'chart' ? 'active' : ''}`} onClick={() => setTrendView('chart')}>
+                <Icon name="chart" size={13} />图表
+              </button>
+              <button className={`chip ${trendView === 'table' ? 'active' : ''}`} onClick={() => setTrendView('table')}>
+                <Icon name="receipt" size={13} />数据表
+              </button>
             </div>
           }>
             {!trend || trend.points.length === 0 ? (
@@ -239,10 +282,14 @@ export default function Analytics() {
           </Card>
 
           {/* 分类占比 */}
-          <Card title={`支出分类排行（${windowLabel}）`} extra={
+          <Card title={`支出分类排行（${windowLabel}）`} icon="receipt" extra={
             <div className="flex gap8">
-              <button className={`chip ${catView === 'chart' ? 'active' : ''}`} onClick={() => setCatView('chart')}>图表</button>
-              <button className={`chip ${catView === 'table' ? 'active' : ''}`} onClick={() => setCatView('table')}>数据表</button>
+              <button className={`chip ${catView === 'chart' ? 'active' : ''}`} onClick={() => setCatView('chart')}>
+                <Icon name="chart" size={13} />图表
+              </button>
+              <button className={`chip ${catView === 'table' ? 'active' : ''}`} onClick={() => setCatView('table')}>
+                <Icon name="receipt" size={13} />数据表
+              </button>
             </div>
           }>
             {!cats || cats.items.length === 0 ? (

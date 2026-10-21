@@ -86,7 +86,8 @@ export default function Settings() {
 
   async function saveEmail() {
     const e = email.trim()
-    if (e && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) { toast('邮箱格式不正确', 'error'); return }
+    if (!e) { toast('邮箱不能为空', 'error'); return }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) { toast('邮箱格式不正确', 'error'); return }
     setEmailBusy(true)
     try {
       const r = await profileApi.bindEmail(e)
@@ -174,7 +175,7 @@ export default function Settings() {
           <Field label="邮箱（用于找回密码）">
             <div className="flex gap8">
               <input className="input" type="email" value={email}
-                     onChange={(e) => setEmail(e.target.value)} placeholder="未绑定" />
+                     onChange={(e) => setEmail(e.target.value)} placeholder="name@example.com" />
               <button className="btn btn-outline" disabled={emailBusy} onClick={() => void saveEmail()}>
                 <Icon name="check" size={15} />
                 {emailBusy ? '保存中…' : '保存'}

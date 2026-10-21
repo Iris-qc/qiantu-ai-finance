@@ -62,7 +62,8 @@ def client(db_session):
 
 def register(client, username="alice", password="Passw0rd123", email=None) -> dict:
     resp = client.post("/api/auth/register", json={
-        "username": username, "password": password, "email": email,
+        "username": username, "password": password,
+        "email": email or f"{username}@example.com",
     })
     assert resp.status_code == 201, resp.text
     return resp.json()

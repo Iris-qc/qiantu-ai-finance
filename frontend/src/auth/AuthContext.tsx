@@ -10,7 +10,7 @@ interface AuthState {
   /** 启动时是否还在恢复登录态 */
   booting: boolean
   login: (username: string, password: string) => Promise<void>
-  register: (username: string, password: string, email?: string) => Promise<void>
+  register: (username: string, password: string, email: string) => Promise<void>
   logout: () => void
   refreshMe: () => Promise<void>
 }
@@ -57,8 +57,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     applyToken(await authApi.login({ username, password }))
   }, [applyToken])
 
-  const register = useCallback(async (username: string, password: string, email?: string) => {
-    applyToken(await authApi.register({ username, password, email: email || undefined }))
+  const register = useCallback(async (username: string, password: string, email: string) => {
+    applyToken(await authApi.register({ username, password, email }))
   }, [applyToken])
 
   const logout = useCallback(() => {

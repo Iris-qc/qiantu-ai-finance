@@ -30,7 +30,8 @@ check("healthz", r.status_code == 200 and r.json()["status"] == "ok")
 
 # 2) 注册 -> 初始化
 u = "e2e" + str(random.randint(1000, 9999))
-r = c.post("/api/auth/register", json={"username": u, "password": "Passw0rd123"})
+r = c.post("/api/auth/register", json={
+    "username": u, "password": "Passw0rd123", "email": f"{u}@example.com"})
 tok = r.json()["access_token"]
 h = {"Authorization": f"Bearer {tok}"}
 check("register", r.status_code == 201, u)
@@ -66,8 +67,10 @@ check("assets after delete = 100000", r.json()["current_assets_cents"] == 100000
       str(r.json()["current_assets_cents"]))
 
 # 5) 用户数据隔离：他人账单返回 404
-r2 = c.post("/api/auth/register", json={"username": "iso" + str(random.randint(1000, 9999)),
-                                        "password": "Passw0rd456"})
+iso = "iso" + str(random.randint(1000, 9999))
+r2 = c.post("/api/auth/register", json={"username": iso,
+                                        "password": "Passw0rd456",
+                                        "email": f"{iso}@example.com"})
 h2 = {"Authorization": f"Bearer {r2.json()['access_token']}"}
 r = c.get("/api/bills/1", headers=h2)
 check("isolation: foreign bill -> 404", r.status_code == 404, str(r.status_code))

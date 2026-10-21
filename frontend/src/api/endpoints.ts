@@ -9,7 +9,7 @@ import type {
 
 // —— 认证 ——
 export const authApi = {
-  register: (body: { username: string; password: string; email?: string }) =>
+  register: (body: { username: string; password: string; email: string }) =>
     api.post<TokenOut>('/auth/register', body),
   login: (body: { username: string; password: string }) =>
     api.post<TokenOut>('/auth/login', body),

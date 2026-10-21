@@ -10,7 +10,7 @@ PASSWORD_RE = re.compile(r"^[A-Za-z0-9_!@#$%^*()+.-]{8,20}$")
 class RegisterIn(BaseModel):
     username: str = Field(description="唯一用户名，4-12 位字母/数字/下划线/连字符，注册后不可修改")
     password: str = Field(description="8-20 位，需同时包含字母和数字")
-    email: EmailStr | None = None
+    email: EmailStr = Field(description="注册邮箱，合法格式且全局唯一，用于找回密码")
 
     @field_validator("username")
     @classmethod

@@ -32,7 +32,11 @@ export default function Register() {
       fe.password = '密码需同时包含字母和数字'
     }
     if (password !== confirm) fe.confirm = '两次输入的密码不一致'
-    if (email.trim() && !EMAIL_RE.test(email.trim())) fe.email = '邮箱格式不正确'
+    if (!email.trim()) {
+      fe.email = '请输入邮箱'
+    } else if (!EMAIL_RE.test(email.trim())) {
+      fe.email = '邮箱格式不正确'
+    }
     if (Object.keys(fe).length) {
       setFieldErrors(fe)
       setError('请修正表单中的错误')
@@ -41,7 +45,7 @@ export default function Register() {
     setBusy(true)
     setError('')
     try {
-      await register(username.trim(), password, email.trim() || undefined)
+      await register(username.trim(), password, email.trim())
       navigate('/onboarding', { replace: true })
     } catch (err) {
       setError(isApiError(err) ? err.message : '注册失败，请稍后重试')
@@ -81,10 +85,10 @@ export default function Register() {
           {fieldErrors.confirm && <span className="field-hint" style={{ color: 'var(--expense)' }}>{fieldErrors.confirm}</span>}
         </label>
         <label className="field">
-          <span className="field-label">邮箱（选填）</span>
+          <span className="field-label">邮箱<span className="required">*</span></span>
           <input className={`input ${fieldErrors.email ? 'invalid' : ''}`} value={email}
                  type="email" autoComplete="email"
-                 onChange={(e) => setEmail(e.target.value)} placeholder="用于找回密码，可稍后在设置中绑定" />
+                 onChange={(e) => setEmail(e.target.value)} placeholder="用于找回密码，可在设置中修改" />
           {fieldErrors.email && <span className="field-hint" style={{ color: 'var(--expense)' }}>{fieldErrors.email}</span>}
         </label>
         {error && <div className="form-error">{error}</div>}

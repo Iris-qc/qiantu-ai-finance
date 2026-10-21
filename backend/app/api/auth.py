@@ -26,12 +26,13 @@ def register(body: RegisterIn, db: Session = Depends(get_db)):
     exists = db.execute(select(User).where(User.username == body.username)).scalar_one_or_none()
     if exists:
         raise biz_error("USERNAME_TAKEN", "该用户名已被注册")
-    if body.email:
-        email_exists = db.execute(select(User).where(User.email == body.email)).scalar_one_or_none()
-        if email_exists:
-            raise biz_error("EMAIL_TAKEN", "该邮箱已被其他账号绑定")
+    email_exists = db.execute(
+        select(User).where(User.email == str(body.email))
+    ).scalar_one_or_none()
+    if email_exists:
+        raise biz_error("EMAIL_TAKEN", "该邮箱已被其他账号绑定")
     user = User(username=body.username, password_hash=hash_password(body.password),
-                email=str(body.email) if body.email else None)
+                email=str(body.email))
     db.add(user)
     db.commit()
     db.refresh(user)

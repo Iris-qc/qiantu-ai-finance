@@ -16,17 +16,35 @@ def test_register_and_login(client):
 def test_duplicate_username(client):
     register(client)
     r = client.post("/api/auth/register", json={
-        "username": "alice", "password": "Passw0rd999", "email": None})
+        "username": "alice", "password": "Passw0rd999", "email": "other@example.com"})
     assert r.status_code == 400
     assert r.json()["detail"]["code"] == "USERNAME_TAKEN"
 
 
-def test_weak_password_rejected(client):
+def test_duplicate_email(client):
+    register(client, username="alice", email="same@example.com")
     r = client.post("/api/auth/register", json={
-        "username": "carol", "password": "short1", "email": None})
+        "username": "bob2026", "password": "Passw0rd999", "email": "same@example.com"})
+    assert r.status_code == 400
+    assert r.json()["detail"]["code"] == "EMAIL_TAKEN"
+
+
+def test_email_required(client):
+    # 缺省或空邮箱均应在 schema 校验阶段被拒绝（SRS 3.3.1.1 注册输入项）
+    r = client.post("/api/auth/register", json={
+        "username": "dave", "password": "Passw0rd123"})
     assert r.status_code == 422
     r = client.post("/api/auth/register", json={
-        "username": "carol", "password": "onlyletters", "email": None})
+        "username": "dave", "password": "Passw0rd123", "email": ""})
+    assert r.status_code == 422
+
+
+def test_weak_password_rejected(client):
+    r = client.post("/api/auth/register", json={
+        "username": "carol", "password": "short1", "email": "carol@example.com"})
+    assert r.status_code == 422
+    r = client.post("/api/auth/register", json={
+        "username": "carol", "password": "onlyletters", "email": "carol@example.com"})
     assert r.status_code == 422
 
 
